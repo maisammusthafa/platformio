@@ -12,6 +12,7 @@
 #include <QuickStats.h>
 #include <Wire.h>
 
+#define HEAP_MAX 81920
 #define OLED_ADDR 0x3C
 #define DHTPIN 14
 #define DHTTYPE DHT22
@@ -27,8 +28,8 @@ const char* LOSANT_ACCESS_KEY = "***REMOVED***";
 const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 
 const int M_ANALOG_MIN = 10;
-const int M_ANALOG_MAX = 930;
-const int SMOOTH_NUM = 40;
+const int M_ANALOG_MAX = 964;
+const int SMOOTH_NUM = 100;
 const float MODE_EPSILON = 5.00;
 
 int smooth_index = 0;
@@ -244,8 +245,8 @@ void loop() {
     }
 
     int smooth_avg = smooth_total / SMOOTH_NUM;
-    int moisture = map(constrain(
-      smooth_avg, M_ANALOG_MIN, M_ANALOG_MAX), M_ANALOG_MAX, M_ANALOG_MIN, 0, 100);
+    float moisture = map(constrain(
+      smooth_avg, M_ANALOG_MIN, M_ANALOG_MAX), M_ANALOG_MAX, M_ANALOG_MIN, 0, 1000) / 10.0;
 
     Serial.print("Temperature: ");
     Serial.print(temperature);
@@ -255,10 +256,13 @@ void loop() {
     Serial.print("%\t");
     Serial.print("Moisture: ");
     Serial.print(moisture);
-    Serial.print("%,\t");
+    Serial.print("%, ");
     Serial.print(smooth_avg);
     Serial.print(", ");
     Serial.print(analogRead(A0));
+    Serial.print("\tRAM: ");
+    Serial.print(100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100));
+    Serial.print("%");
     report(temperature, humidity, moisture, 100.0 - (smooth_avg / 10.0));
 
     oled.clearDisplay();
