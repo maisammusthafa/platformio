@@ -30,6 +30,7 @@ const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 const int M_ANALOG_MIN = 10;
 const int M_ANALOG_MAX = 964;
 const int SMOOTH_NUM = 100;
+const int SMOOTH_INIT_MS = 2000;
 const float MODE_EPSILON = 5.00;
 
 int smooth_index = 0;
@@ -189,6 +190,7 @@ void setup() {
   for (int i = 0; i < SMOOTH_NUM; i++) {
     smooth_values[i] = float(analogRead(A0));
     smooth_total += smooth_values[i];
+    delay(SMOOTH_INIT_MS / SMOOTH_NUM);
   }
 }
 
