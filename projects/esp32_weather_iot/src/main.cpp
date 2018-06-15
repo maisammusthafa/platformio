@@ -1,24 +1,27 @@
 // Program to log DHT22 sensor and KG003 soil moisture sensor
 // data to Losant to use as an IoT device.
 
-#include "DHT.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Arduino.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Fonts/FreeSans9pt7b.h>
 #include <Losant.h>
+#include "PietteTech_DHT.h"
 #include <QuickStats.h>
 #include <Wire.h>
 
-#define HEAP_MAX 81920
+#define HEAP_MAX 532480
 #define OLED_ADDR 0x3C
-#define DHTPIN 12
 #define DHTTYPE DHT22
+#define DHTPIN 4
+#define MOISTURE_PIN 33
+
+void dht_wrapper();
 
 Adafruit_SSD1306 oled(-1);
-DHT dht(DHTPIN, DHTTYPE);
+PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
 
 const char* WIFI_SSID = "***REMOVED***";
 const char* WIFI_PASS = "***REMOVED***";
@@ -28,7 +31,7 @@ const char* LOSANT_ACCESS_KEY = "***REMOVED***";
 const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 
 const int M_ANALOG_MIN = 10;
-const int M_ANALOG_MAX = 964;
+const int M_ANALOG_MAX = 4000;
 const int SMOOTH_NUM = 40;
 const int SMOOTH_INIT_MS = 2000;
 const float MODE_EPSILON = 5.00;
@@ -63,7 +66,7 @@ void connect() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_OFF);
   WiFi.mode(WIFI_STA);
-  WiFi.setOutputPower(0);
+  // WiFi.setOutputPower(0);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   unsigned long ConnectStart = millis();
@@ -149,9 +152,8 @@ void connect() {
     Serial.print("\n...");
   }
 
-  Serial.println("Connected!");
-  Serial.println();
-  Serial.println("This device is now ready for use!");
+  Serial.println("Connected!\n");
+  Serial.println("This device is now ready for use!\n");
   display(0, 14, "Connected!\nDevice is ready for use.", true, true);
 }
 
@@ -169,31 +171,6 @@ String formatData(String prefix, float value, String suffix, int len = 6, int mi
   return result;
 }
 
-void setup() {
-  oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
-  oled.setFont(&FreeSans9pt7b);
-  oled.setTextSize(1);
-  oled.setTextColor(WHITE);
-
-  Serial.begin(115200);
-  Serial.setTimeout(2000);
-
-  while(!Serial) { }
-
-  Serial.println("Device Started.");
-  Serial.println("Running DHT...");
-
-  display(0, 14, "Device started.\nRunning DHT...", true, true);
-
-  connect();
-
-  for (int i = 0; i < SMOOTH_NUM; i++) {
-    smooth_values[i] = float(analogRead(A0));
-    smooth_total += smooth_values[i];
-    delay(SMOOTH_INIT_MS / SMOOTH_NUM);
-  }
-}
-
 void report(double temperature, double humidity, double moisture, double analog) {
   StaticJsonBuffer<500> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
@@ -203,6 +180,37 @@ void report(double temperature, double humidity, double moisture, double analog)
   root["analog"] = analog;
   device.sendState(root);
   Serial.println("\tReported!");
+}
+
+void dht_wrapper() {
+    DHT.isrCallback();
+}
+
+void setup() {
+  analogSetWidth(12);
+
+  oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+  oled.setFont(&FreeSans9pt7b);
+  oled.setTextSize(1);
+  oled.setTextColor(WHITE);
+
+  Serial.begin(115200);
+  Serial.setTimeout(2000);
+
+  // while(!Serial) { }
+
+  Serial.println("Device Started.");
+  Serial.println("Running DHT...");
+
+  display(0, 14, "Device started.\nRunning DHT...", true, true);
+
+  connect();
+
+  for (int i = 0; i < SMOOTH_NUM; i++) {
+    smooth_values[i] = float(analogRead(MOISTURE_PIN));
+    smooth_total += smooth_values[i];
+    delay(SMOOTH_INIT_MS / SMOOTH_NUM);
+  }
 }
 
 void loop() {
@@ -225,17 +233,18 @@ void loop() {
 
   device.loop();
 
-  analog_values[(timeSinceLastRead / 100)] = float(analogRead(A0));
+  analog_values[(timeSinceLastRead / 100)] = float(analogRead(MOISTURE_PIN));
 
   if(timeSinceLastRead > 2000) {
-    float temperature = dht.readTemperature();
-    float humidity = dht.readHumidity();
-
-    if (isnan(temperature) || isnan(humidity)) {
+    int dht_result = DHT.acquireAndWait(0);
+    if (dht_result != DHTLIB_OK) {
       Serial.println("Failed to read data from DHT sensor!");
       timeSinceLastRead = 0;
       return;
     }
+
+    float temperature = DHT.getCelsius();
+    float humidity = DHT.getHumidity();
 
     smooth_total -= smooth_values[smooth_index];
     smooth_values[smooth_index] = stats.mode(analog_values, 22, MODE_EPSILON);
@@ -261,11 +270,12 @@ void loop() {
     Serial.print("%, ");
     Serial.print(smooth_avg);
     Serial.print(", ");
-    Serial.print(analogRead(A0));
+    Serial.print(analogRead(MOISTURE_PIN));
     Serial.print("\tRAM: ");
     Serial.print(100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100));
     Serial.print("%");
-    report(temperature, humidity, moisture, 100.0 - (smooth_avg / 10.0));
+
+    report(temperature, humidity, moisture, 100.0 - ((smooth_avg * 100) / float(M_ANALOG_MAX)));
 
     oled.clearDisplay();
     display(0, 14, formatData("T: ", temperature, " *C"), true, false);
