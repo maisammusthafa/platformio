@@ -31,8 +31,8 @@ const char* LOSANT_ACCESS_KEY = "***REMOVED***";
 const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 
 const int M_ANALOG_MIN = 10;
-const int M_ANALOG_MAX = 4000;
-const int SMOOTH_NUM = 40;
+const int M_ANALOG_MAX = 4095;
+const int SMOOTH_NUM = 20;
 const int SMOOTH_INIT_MS = 2000;
 const float MODE_EPSILON = 5.00;
 
@@ -42,6 +42,8 @@ float smooth_total = 0;
 float analog_values[22];
 
 int timeSinceLastRead = 0;
+int counter = 1;
+char counterString[10];
 
 QuickStats stats;
 WiFiClientSecure wifiClient;
@@ -179,7 +181,6 @@ void report(double temperature, double humidity, double moisture, double analog)
   root["moisture"] = moisture;
   root["analog"] = analog;
   device.sendState(root);
-  Serial.println("\tReported!");
 }
 
 void dht_wrapper() {
@@ -245,9 +246,11 @@ void loop() {
 
     float temperature = DHT.getCelsius();
     float humidity = DHT.getHumidity();
+    int m_analog_value = analogRead(MOISTURE_PIN);
 
     smooth_total -= smooth_values[smooth_index];
     smooth_values[smooth_index] = stats.mode(analog_values, 22, MODE_EPSILON);
+    // smooth_values[smooth_index] = m_analog_value;
     smooth_total += smooth_values[smooth_index];
     smooth_index++;
 
@@ -259,23 +262,26 @@ void loop() {
     float moisture = map(constrain(
       smooth_avg, M_ANALOG_MIN, M_ANALOG_MAX), M_ANALOG_MAX, M_ANALOG_MIN, 0, 1000) / 10.0;
 
+    sprintf(counterString, "[%06d] ", counter);
+
+    Serial.print(counterString);
     Serial.print("Temperature: ");
     Serial.print(temperature);
-    Serial.print(" *C\t");
+    Serial.print(" *C    ");
     Serial.print("Humidity: ");
     Serial.print(humidity);
-    Serial.print("%\t");
+    Serial.print("%    ");
     Serial.print("Moisture: ");
     Serial.print(moisture);
     Serial.print("%, ");
     Serial.print(smooth_avg);
     Serial.print(", ");
-    Serial.print(analogRead(MOISTURE_PIN));
-    Serial.print("\tRAM: ");
+    Serial.print(m_analog_value);
+    Serial.print("    RAM: ");
     Serial.print(100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100));
-    Serial.print("%");
+    Serial.println("%");
 
-    report(temperature, humidity, moisture, 100.0 - ((smooth_avg * 100) / float(M_ANALOG_MAX)));
+    report(temperature, humidity, moisture, map(m_analog_value, 4095, 0, 0, 1000) / 10.0);
 
     oled.clearDisplay();
     display(0, 14, formatData("T: ", temperature, " *C"), true, false);
@@ -283,6 +289,7 @@ void loop() {
     display(0, 61, formatData("M: ", moisture, "%"), false, true);
 
     timeSinceLastRead = 0;
+    counter++;
   }
 
   delay(100);
