@@ -1,4 +1,4 @@
-// Program to log DHT22 sensor and KG003 soil moisture sensor
+// Program to log DHT22 sensor and light sensor
 // data to Losant to use as an IoT device.
 
 #include <Adafruit_GFX.h>
@@ -16,7 +16,7 @@
 #define OLED_ADDR 0x3C
 #define DHTTYPE DHT22
 #define DHTPIN 4
-#define MOISTURE_PIN 33
+#define LDR_PIN 32
 
 void dht_wrapper();
 
@@ -30,8 +30,8 @@ const char* LOSANT_DEVICE_ID = "***REMOVED***";
 const char* LOSANT_ACCESS_KEY = "***REMOVED***";
 const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 
-const int M_ANALOG_MIN = 10;
-const int M_ANALOG_MAX = 4095;
+const int L_ANALOG_MIN = 0;
+const int L_ANALOG_MAX = 4095;
 const int SMOOTH_NUM = 20;
 const int SMOOTH_INIT_MS = 2000;
 const float MODE_EPSILON = 5.00;
@@ -43,7 +43,7 @@ float analog_values[22];
 
 int timeSinceLastRead = 0;
 int counter = 1;
-char counterString[10];
+char outputString[100];
 
 QuickStats stats;
 WiFiClientSecure wifiClient;
@@ -173,12 +173,12 @@ String formatData(String prefix, float value, String suffix, int len = 6, int mi
   return result;
 }
 
-void report(double temperature, double humidity, double moisture, double analog) {
+void report(double temperature, double humidity, double light, double analog) {
   StaticJsonBuffer<500> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   root["temperature"] = temperature;
   root["humidity"] = humidity;
-  root["moisture"] = moisture;
+  root["light"] = light;
   root["analog"] = analog;
   device.sendState(root);
 }
@@ -208,7 +208,7 @@ void setup() {
   connect();
 
   for (int i = 0; i < SMOOTH_NUM; i++) {
-    smooth_values[i] = float(analogRead(MOISTURE_PIN));
+    smooth_values[i] = float(analogRead(LDR_PIN));
     smooth_total += smooth_values[i];
     delay(SMOOTH_INIT_MS / SMOOTH_NUM);
   }
@@ -234,9 +234,9 @@ void loop() {
 
   device.loop();
 
-  analog_values[(timeSinceLastRead / 100)] = float(analogRead(MOISTURE_PIN));
+  analog_values[(timeSinceLastRead / 100)] = float(analogRead(LDR_PIN));
 
-  if(timeSinceLastRead > 2000) {
+  if(timeSinceLastRead > 1000) {
     int dht_result = DHT.acquireAndWait(0);
     if (dht_result != DHTLIB_OK) {
       Serial.println("Failed to read data from DHT sensor!");
@@ -246,7 +246,8 @@ void loop() {
 
     float temperature = DHT.getCelsius();
     float humidity = DHT.getHumidity();
-    int m_analog_value = analogRead(MOISTURE_PIN);
+    int l_analog_value = analogRead(LDR_PIN);
+    float free_heap = 100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100);
 
     smooth_total -= smooth_values[smooth_index];
     smooth_values[smooth_index] = stats.mode(analog_values, 22, MODE_EPSILON);
@@ -259,34 +260,21 @@ void loop() {
     }
 
     int smooth_avg = smooth_total / SMOOTH_NUM;
-    float moisture = map(constrain(
-      smooth_avg, M_ANALOG_MIN, M_ANALOG_MAX), M_ANALOG_MAX, M_ANALOG_MIN, 0, 1000) / 10.0;
+    float light = map(constrain(
+      smooth_avg, L_ANALOG_MIN, L_ANALOG_MAX), L_ANALOG_MAX, L_ANALOG_MIN, 0, 1000) / 10.0;
 
-    sprintf(counterString, "[%06d] ", counter);
+    sprintf(outputString, "[%06d] Temperature: %0.2f *C    Humidity: %0.2f%%    Light: %.2f%%, %4d, %4d    RAM: %0.2f%%\n",
+      counter, temperature, humidity, light, smooth_avg, l_analog_value, free_heap);
 
-    Serial.print(counterString);
-    Serial.print("Temperature: ");
-    Serial.print(temperature);
-    Serial.print(" *C    ");
-    Serial.print("Humidity: ");
-    Serial.print(humidity);
-    Serial.print("%    ");
-    Serial.print("Moisture: ");
-    Serial.print(moisture);
-    Serial.print("%, ");
-    Serial.print(smooth_avg);
-    Serial.print(", ");
-    Serial.print(m_analog_value);
-    Serial.print("    RAM: ");
-    Serial.print(100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100));
-    Serial.println("%");
+    Serial.print(outputString);
 
-    report(temperature, humidity, moisture, map(m_analog_value, 4095, 0, 0, 1000) / 10.0);
+    // report(temperature, humidity, light, l_analog_value);
+    report(temperature, humidity, light, map(l_analog_value, 4095, 0, 0, 1000) / 10.0);
 
     oled.clearDisplay();
     display(0, 14, formatData("T: ", temperature, " *C"), true, false);
     display(0, 38, formatData("H: ", humidity, "%"), false, false);
-    display(0, 61, formatData("M: ", moisture, "%"), false, true);
+    display(0, 61, formatData("L: ", light, "%"), false, true);
 
     timeSinceLastRead = 0;
     counter++;
