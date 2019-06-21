@@ -99,13 +99,13 @@ void connect() {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Accept", "application/json");
 
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
+    StaticJsonDocument<200> jsonBuffer;
+    JsonObject root = jsonBuffer.to<JsonObject>();
     root["deviceId"] = LOSANT_DEVICE_ID;
     root["key"] = LOSANT_ACCESS_KEY;
     root["secret"] = LOSANT_ACCESS_SECRET;
     String buffer;
-    root.printTo(buffer);
+    serializeJson(root, buffer);
 
     int httpCode = http.POST(buffer);
 
@@ -163,8 +163,8 @@ String formatData(String prefix, float value, String suffix, int len = 6, int mi
 }
 
 void report(double temperature, double humidity, double heat_index) {
-    StaticJsonBuffer<500> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
+    StaticJsonDocument<500> jsonBuffer;
+    JsonObject root = jsonBuffer.to<JsonObject>();
     root["temperature"] = temperature;
     root["humidity"] = humidity;
     root["heat_index"] = heat_index;
