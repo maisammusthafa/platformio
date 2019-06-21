@@ -7,10 +7,13 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Fonts/FreeSans9pt7b.h>
-#include <Losant.h>
 #include "DHTesp.h"
 // #include <QuickStats.h>
 #include <Wire.h>
+#include <Adafruit_MQTT.h>
+#include <Adafruit_MQTT_Client.h>
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
 
 #define HEAP_MAX 532480
 #define OLED_ADDR 0x3C
@@ -18,15 +21,17 @@
 #define DHTPIN 4
 // #define LDR_PIN 32
 
+#define WIFI_SSID "***REMOVED***"
+#define WIFI_PASSWORD "***REMOVED***"
+
+#define MQTT_BROKER "broker.losant.com"
+#define MQTT_PORT 8883
+#define MQTT_CLIENT_ID "***REMOVED***"
+#define MQTT_USERNAME "***REMOVED***"
+#define MQTT_PASSWORD "***REMOVED***"
+
 Adafruit_SSD1306 oled(128, 64);
 DHTesp DHT;
-
-const char* WIFI_SSID = "***REMOVED***";
-const char* WIFI_PASS = "***REMOVED***";
-
-const char* LOSANT_DEVICE_ID = "***REMOVED***";
-const char* LOSANT_ACCESS_KEY = "***REMOVED***";
-const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
 
 // const int L_ANALOG_MIN = 0;
 // const int L_ANALOG_MAX = 4095;
@@ -44,7 +49,7 @@ int counter = 1;
 
 // QuickStats stats;
 WiFiClientSecure wifiClient;
-LosantDevice device(LOSANT_DEVICE_ID);
+PubSubClient mqtt;
 
 void display(int x, int y, String text, bool clear = false, bool flush = false) {
     if (clear) { oled.clearDisplay(); }
@@ -64,7 +69,7 @@ void connect() {
     WiFi.mode(WIFI_OFF);
     WiFi.mode(WIFI_STA);
     // WiFi.setOutputPower(0);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     unsigned long ConnectStart = millis();
 
@@ -72,7 +77,7 @@ void connect() {
         if (WiFi.status() == WL_CONNECT_FAILED) {
             printf("Failed to connect to WIFI. Please verify credentials.\n");
             printf("SSID: %s", WIFI_SSID);
-            printf("Password: %s\n\n", WIFI_PASS);
+            printf("Password: %s\n\n", WIFI_PASSWORD);
         }
 
         delay(500);
@@ -101,9 +106,9 @@ void connect() {
 
     StaticJsonDocument<200> jsonBuffer;
     JsonObject root = jsonBuffer.to<JsonObject>();
-    root["deviceId"] = LOSANT_DEVICE_ID;
-    root["key"] = LOSANT_ACCESS_KEY;
-    root["secret"] = LOSANT_ACCESS_SECRET;
+    root["deviceId"] = MQTT_CLIENT_ID;
+    root["key"] = MQTT_USERNAME;
+    root["secret"] = MQTT_PASSWORD;
     String buffer;
     serializeJson(root, buffer);
 
@@ -132,10 +137,13 @@ void connect() {
     printf("Connecting to Losant... ");
     display(0, 14, "Connecting to\nLosant...", true, true);
 
-    device.connectSecure(wifiClient, LOSANT_ACCESS_KEY, LOSANT_ACCESS_SECRET);
+    mqtt.setClient(wifiClient);
+    mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+    mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
+
     ConnectStart = millis();
 
-    while (!device.connected()) {
+    while (!mqtt.connected()) {
         if (millis() - ConnectStart > 5000) {
             return;
         }
@@ -163,12 +171,19 @@ String formatData(String prefix, float value, String suffix, int len = 6, int mi
 }
 
 void report(double temperature, double humidity, double heat_index) {
-    StaticJsonDocument<500> jsonBuffer;
-    JsonObject root = jsonBuffer.to<JsonObject>();
-    root["temperature"] = temperature;
-    root["humidity"] = humidity;
-    root["heat_index"] = heat_index;
-    device.sendState(root);
+    StaticJsonDocument<500> jsonDoc;
+    JsonObject data = jsonDoc.to<JsonObject>();
+    data["temperature"] = temperature;
+    data["humidity"] = humidity;
+    data["heat_index"] = heat_index;
+
+    StaticJsonDocument<100> jsonDoc2;
+    JsonObject root = jsonDoc2.to<JsonObject>();
+    root["data"] = data;
+
+    String payload;
+    serializeJson(root, payload);
+    mqtt.publish("losant/" MQTT_CLIENT_ID "/state", payload.c_str());
 }
 
 void setup() {
@@ -206,8 +221,8 @@ void loop() {
         toReconnect = true;
     }
 
-    if (!device.connected()) {
-        printf("Disconnected from MQTT. Client state: %d\n", device.mqttClient.state());
+    if (!mqtt.connected()) {
+        printf("Disconnected from MQTT. Client state: %d\n", mqtt.state());
         toReconnect = true;
     }
 
@@ -215,7 +230,7 @@ void loop() {
         connect();
     }
 
-    device.loop();
+    mqtt.loop();
 
     // analog_values[(timeSinceLastRead / 100)] = float(analogRead(LDR_PIN));
 
