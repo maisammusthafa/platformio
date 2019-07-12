@@ -10,8 +10,6 @@
 #include "DHTesp.h"
 // #include <QuickStats.h>
 #include <Wire.h>
-#include <Adafruit_MQTT.h>
-#include <Adafruit_MQTT_Client.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 
@@ -204,7 +202,7 @@ void setup() {
 
     DHT.setup(DHTPIN, DHTesp::DHT22);
 
-    connect();
+    // connect();
 
     // for (int i = 0; i < SMOOTH_NUM; i++) {
     //     smooth_values[i] = float(analogRead(LDR_PIN));
@@ -214,23 +212,23 @@ void setup() {
 }
 
 void loop() {
-    bool toReconnect = false;
+    // bool toReconnect = false;
 
-    if (WiFi.status() != WL_CONNECTED) {
-        printf("Disconnected from WiFi\n");
-        toReconnect = true;
-    }
+    // if (WiFi.status() != WL_CONNECTED) {
+    //     printf("Disconnected from WiFi\n");
+    //     toReconnect = true;
+    // }
 
-    if (!mqtt.connected()) {
-        printf("Disconnected from MQTT. Client state: %d\n", mqtt.state());
-        toReconnect = true;
-    }
+    // if (!mqtt.connected()) {
+    //     printf("Disconnected from MQTT. Client state: %d\n", mqtt.state());
+    //     toReconnect = true;
+    // }
 
-    if (toReconnect) {
-        connect();
-    }
+    // if (toReconnect) {
+    //     connect();
+    // }
 
-    mqtt.loop();
+    // mqtt.loop();
 
     // analog_values[(timeSinceLastRead / 100)] = float(analogRead(LDR_PIN));
 
@@ -265,7 +263,7 @@ void loop() {
         printf("[%06d] Temperature: %0.2f *C      Humidity: %0.2f%%      Heat Index: %0.2f%%      RAM: %0.2f%%\n",
             counter, temperature, humidity, heat_index, free_heap);
 
-        report(temperature, humidity, heat_index);
+        // report(temperature, humidity, heat_index);
 
         oled.clearDisplay();
         display(0, 14, formatData("T: ", temperature, " *C"), true, false);

@@ -1,0 +1,268 @@
+// Program to log DHT22 sensor and light sensor
+// data to Losant to use as an IoT device.
+
+// #include <Adafruit_GFX.h>
+// #include <Adafruit_SSD1306.h>
+#include <Arduino.h>
+// #include <HTTPClient.h>
+// #include <WiFiClientSecure.h>
+// #include <Fonts/FreeSans9pt7b.h>
+// #include "DHTesp.h"
+// #include <Wire.h>
+// #include <ArduinoJson.h>
+// #include <PubSubClient.h>
+
+#define HEAP_MAX 532480
+#define OLED_ADDR 0x3C
+#define DHTTYPE DHT22
+#define DHTPIN 4
+
+// #define WIFI_SSID "***REMOVED***"
+// #define WIFI_PASSWORD "***REMOVED***"
+
+// #define MQTT_BROKER "broker.losant.com"
+// #define MQTT_PORT 8883
+// #define MQTT_CLIENT_ID "***REMOVED***"
+// #define MQTT_USERNAME "***REMOVED***"
+// #define MQTT_PASSWORD "***REMOVED***"
+
+// Adafruit_SSD1306 oled(128, 64);
+// DHTesp DHT;
+
+#define LED_BUILTIN 2
+#define PIR_SENSOR 26
+#define TIME_MILLIS 10000
+
+int ledState = LOW;
+unsigned long now = millis();
+unsigned long lastTrigger = 0;
+bool startTimer = false;
+
+// WiFiClientSecure wifiClient;
+// PubSubClient mqtt;
+
+// void display(int x, int y, String text, bool clear = false, bool flush = false) {
+//     if (clear) { oled.clearDisplay(); }
+//     oled.setCursor(x, y);
+//     oled.print(text);
+//     if (flush) { oled.display(); }
+// }
+
+// void connect() {
+//     printf("\n\n");
+//     printf("Connecting to %s", WIFI_SSID);
+
+//     display(0, 14, "Connecting to\n" + String(WIFI_SSID) + "...", true, true);
+
+//     // WiFi fix: https://github.com/esp8266/Arduino/issues/2186
+//     WiFi.persistent(false);
+//     WiFi.mode(WIFI_OFF);
+//     WiFi.mode(WIFI_STA);
+//     // WiFi.setOutputPower(0);
+//     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+//     unsigned long ConnectStart = millis();
+
+//     while (WiFi.status() != WL_CONNECTED) {
+//         if (WiFi.status() == WL_CONNECT_FAILED) {
+//             printf("Failed to connect to WIFI. Please verify credentials.\n");
+//             printf("SSID: %s", WIFI_SSID);
+//             printf("Password: %s\n\n", WIFI_PASSWORD);
+//         }
+
+//         delay(500);
+//         printf("...\n");
+
+//         if (millis() - ConnectStart > 5000) {
+//             printf("Failed to connect to WiFi\n");
+//             printf("Please attempt to send updated configuration parameters.\n");
+//             return;
+//         }
+//     }
+
+//     printf("\n");
+//     printf("WiFi connected\n");
+//     printf("IP address: %s\n\n", WiFi.localIP().toString().c_str());
+
+//     display(0, 14, "WiFi connected\nIP: " + WiFi.localIP().toString(), true, true);
+//     delay(1000);
+
+//     printf("Authenticating device... ");
+
+//     HTTPClient http;
+//     http.begin("http://api.losant.com/auth/device");
+//     http.addHeader("Content-Type", "application/json");
+//     http.addHeader("Accept", "application/json");
+
+//     StaticJsonDocument<200> jsonBuffer;
+//     JsonObject root = jsonBuffer.to<JsonObject>();
+//     root["deviceId"] = MQTT_CLIENT_ID;
+//     root["key"] = MQTT_USERNAME;
+//     root["secret"] = MQTT_PASSWORD;
+//     String buffer;
+//     serializeJson(root, buffer);
+
+//     int httpCode = http.POST(buffer);
+
+//     if (httpCode > 0) {
+//             if (httpCode == HTTP_CODE_OK) {
+//                     printf("This device is authorized!\n");
+//             } else {
+//                 printf("Failed to authorize device to Losant.\n");
+//                 if (httpCode == 400) {
+//                     printf("Validation error: The device ID, access key, or access secret is not in the proper format.\n");
+//                 } else if (httpCode == 401) {
+//                     printf("Invalid credentials to Losant: Please double-check the device ID, access key, and access secret.\n");
+//                 } else {
+//                     printf("Unknown response from API.\n");
+//                 }
+//             }
+//         } else {
+//             printf("Failed to connect to Losant API.\n");
+//      }
+
+//     http.end();
+
+//     printf("\n");
+//     printf("Connecting to Losant... ");
+//     display(0, 14, "Connecting to\nLosant...", true, true);
+
+//     mqtt.setClient(wifiClient);
+//     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+//     mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
+
+//     ConnectStart = millis();
+
+//     while (!mqtt.connected()) {
+//         if (millis() - ConnectStart > 5000) {
+//             return;
+//         }
+//         delay(500);
+//         printf("...\n");
+//     }
+
+//     printf("Connected!\n");
+//     printf("This device is now ready for use!\n\n");
+//     display(0, 14, "Connected!\nDevice is ready for use.", true, true);
+// }
+
+// String formatData(String prefix, float value, String suffix, int len = 6, int minWidth = 4, int precision = 2) {
+//     char chars[len];
+//     String result = prefix;
+
+//     dtostrf(value, minWidth, precision, chars);
+
+//     for (int i = 0; i < sizeof(chars); i++) {
+//         result += chars[i];
+//     }
+
+//     result += suffix;
+//     return result;
+// }
+
+// void report(double temperature, double humidity, double heat_index) {
+//     StaticJsonDocument<500> jsonDoc;
+//     JsonObject data = jsonDoc.to<JsonObject>();
+//     data["temperature"] = temperature;
+//     data["humidity"] = humidity;
+//     data["heat_index"] = heat_index;
+
+//     StaticJsonDocument<100> jsonDoc2;
+//     JsonObject root = jsonDoc2.to<JsonObject>();
+//     root["data"] = data;
+
+//     String payload;
+//     serializeJson(root, payload);
+//     mqtt.publish("losant/" MQTT_CLIENT_ID "/state", payload.c_str());
+// }
+
+void IRAM_ATTR detectsMovement() {
+    printf("MOTION DETECTED!!!\n");
+    digitalWrite(LED_BUILTIN, HIGH);
+    startTimer = true;
+    lastTrigger = millis();
+}
+
+void setup() {
+    // oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+    // oled.setFont(&FreeSans9pt7b);
+    // oled.setTextSize(1);
+    // oled.setTextColor(WHITE);
+
+    Serial.begin(115200);
+    Serial.setTimeout(2000);
+
+    printf("Device Started.\n");
+    // printf("Running DHT...\n");
+
+    // display(0, 14, "Device started.\nRunning DHT...", true, true);
+
+    // DHT.setup(DHTPIN, DHTesp::DHT22);
+
+    // connect();
+
+    pinMode(PIR_SENSOR, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIR_SENSOR), detectsMovement, RISING);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+}
+
+void loop() {
+    // bool toReconnect = false;
+
+    // if (WiFi.status() != WL_CONNECTED) {
+    //     printf("Disconnected from WiFi\n");
+    //     toReconnect = true;
+    // }
+
+    // if (!mqtt.connected()) {
+    //     printf("Disconnected from MQTT. Client state: %d\n", mqtt.state());
+    //     toReconnect = true;
+    // }
+
+    // if (toReconnect) {
+    //     connect();
+    // }
+
+    // mqtt.loop();
+
+    // analog_values[(timeSinceLastRead / 100)] = float(analogRead(LDR_PIN));
+
+    // if (timeSinceLastRead > 3000) {
+        // TempAndHumidity newValues = DHT.getTempAndHumidity();
+        // if (DHT.getStatus() != 0) {
+        //     printf(DHT.getStatusString());
+        //     printf("\n");
+        //     timeSinceLastRead = 0;
+        //     return;
+        // }
+        // float temperature = newValues.temperature;
+        // float humidity = newValues.humidity;
+        // float heat_index = round(DHT.computeHeatIndex(temperature, humidity) * 10) / 10.0;
+        // float free_heap = 100 - (ESP.getFreeHeap() / float (HEAP_MAX) * 100);
+
+        // printf("[%06d] Temperature: %0.2f *C      Humidity: %0.2f%%      Heat Index: %0.2f%%      RAM: %0.2f%%\n",
+        //     counter, temperature, humidity, heat_index, free_heap);
+
+        // report(temperature, humidity, heat_index);
+
+        // oled.clearDisplay();
+        // display(0, 14, formatData("T: ", temperature, " *C"), true, false);
+        // display(0, 38, formatData("H: ", humidity, "%"), false, false);
+        // display(0, 61, formatData("I:  ", heat_index, " *C"), false, true);
+
+    //     timeSinceLastRead = 0;
+    //     counter++;
+    // }
+
+    // delay(100);
+    // timeSinceLastRead += 100;
+    now = millis();
+
+    if (startTimer && (now - lastTrigger >= TIME_MILLIS)) {
+        printf("Motion stopped...\n");
+        digitalWrite(LED_BUILTIN, LOW);
+        startTimer = false;
+    }
+}
