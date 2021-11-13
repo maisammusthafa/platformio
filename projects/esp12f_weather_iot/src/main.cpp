@@ -20,12 +20,12 @@
 Adafruit_SSD1306 oled(-1);
 DHT dht(DHTPIN, DHTTYPE);
 
-const char* WIFI_SSID = "***REMOVED***";
-const char* WIFI_PASS = "***REMOVED***";
+const char* WIFI_SSID = "SSID";
+const char* WIFI_PASS = "PASSWORD";
 
-const char* LOSANT_DEVICE_ID = "***REMOVED***";
-const char* LOSANT_ACCESS_KEY = "***REMOVED***";
-const char* LOSANT_ACCESS_SECRET = "***REMOVED***";
+const char* LOSANT_DEVICE_ID = "DEVICE_ID";
+const char* LOSANT_ACCESS_KEY = "ACCESS_KEY";
+const char* LOSANT_ACCESS_SECRET = "ACCESS_SECRET";
 
 const int M_ANALOG_MIN = 10;
 const int M_ANALOG_MAX = 964;

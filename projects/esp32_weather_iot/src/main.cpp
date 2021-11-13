@@ -19,14 +19,14 @@
 #define DHTPIN 4
 // #define LDR_PIN 32
 
-#define WIFI_SSID "***REMOVED***"
-#define WIFI_PASSWORD "***REMOVED***"
+#define WIFI_SSID "SSID"
+#define WIFI_PASSWORD "PASSWORD"
 
 #define MQTT_BROKER "broker.losant.com"
 #define MQTT_PORT 8883
-#define MQTT_CLIENT_ID "***REMOVED***"
-#define MQTT_USERNAME "***REMOVED***"
-#define MQTT_PASSWORD "***REMOVED***"
+#define MQTT_CLIENT_ID "CLIENT_ID"
+#define MQTT_USERNAME "USERNAME"
+#define MQTT_PASSWORD "PASSWORD"
 
 Adafruit_SSD1306 oled(128, 64);
 DHTesp DHT;
